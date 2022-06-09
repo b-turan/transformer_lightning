@@ -13,16 +13,16 @@
 3. Analyze BLEU score before and after pruning
 
 # To Do
-[x] Check BLEU Evaluation for
+* [x] Check BLEU Evaluation for
     - [x] Pretrained, but not finetuned T5-small -> sacrebleu: 18,5 (on WMT16's validation set)
     - [x] Pretrained, but not finetuned T5-base -> sacrebleu: 19.8 (on WMT16's validation set)
     - [x] Pretrained, but not finetuned T5-large -> Does not terminate
     - [x] Pretrained and finetuned for 30 Epochs -> see logs sent to @zimmer-m
-[x] Initialize T5 without pretrained parameters
+* [x] Initialize T5 without pretrained parameters
     - [x] How to train from scratch? -> see config 
     - [x] Train randomly initialized T5 from scratch for 5 Epochs
         - [x] Check BLEU score -> very slow progress
-[ ] Prepare Training for 4x NVIDIA A100 80GB GPUs
+* [ ] Prepare Training for 4x NVIDIA A100 80GB GPUs
     - [ ] Find paper which pretrains on WMT16
     - [ ] Implementation in PyTorch (drop lightning for now)
     - [ ] Define appropriate training, evaluation and test dataset
