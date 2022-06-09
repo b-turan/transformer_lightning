@@ -18,6 +18,7 @@
     - [x] Pretrained, but not finetuned T5-base -> sacrebleu: 19.8 (on WMT16's validation set)
     - [x] Pretrained, but not finetuned T5-large -> Does not terminate
     - [x] Pretrained and finetuned for 30 Epochs -> see logs sent to @zimmer-m
+    - [ ] Check Issue regarding bleu score: https://github.com/huggingface/transformers/issues/5543 
 * [x] Initialize T5 without pretrained parameters
     - [x] How to train from scratch? -> see config 
     - [x] Train randomly initialized T5 from scratch for 5 Epochs
