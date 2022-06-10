@@ -7,8 +7,10 @@ import transformers
 from absl import app, flags, logging
 
 flags.DEFINE_boolean('debug', False, '')
-flags.DEFINE_boolean('train', True, " ")
+flags.DEFINE_boolean('train', True, '')
+flags.DEFINE_boolean('is_pretrained', False, '')
 flags.DEFINE_integer('epochs', 5, '')
+flags.DEFINE_integer('training_samples', 30000, '')
 flags.DEFINE_integer('batch_size', 128, '')
 flags.DEFINE_float('lr', 3e-4, '') # 3e-4 recommended by huggingface docs
 flags.DEFINE_float('momentum', .9, '')
@@ -16,7 +18,6 @@ flags.DEFINE_string('model', 't5-small', '')
 flags.DEFINE_integer('seq_length', 32, '')
 flags.DEFINE_integer('percent', 5, '')
 flags.DEFINE_integer('num_workers', 8, '')
-flags.DEFINE_boolean('is_pretrained', False, '')
 
 
 FLAGS = flags.FLAGS
@@ -29,20 +30,21 @@ sh.mkdir('logs')
 class TranslationTransformer(pl.LightningModule):
     def __init__(self):
         super().__init__()
+        self.tokenizer = transformers.T5Tokenizer.from_pretrained(FLAGS.model)
         if FLAGS.is_pretrained:
             self.model = transformers.T5ForConditionalGeneration.from_pretrained(FLAGS.model, torch_dtype="auto")       
         else:
-            self.tokenizer = transformers.T5Tokenizer.from_pretrained(FLAGS.model)
-            start_token_id = self.tokenizer.convert_tokens_to_ids(['<pad>'])[0] # see transformers/issues/16571
-            config = transformers.T5Config(vocab_size=self.tokenizer.vocab_size, decoder_start_token_id=start_token_id)
+            config = transformers.AutoConfig.from_pretrained('t5-small') # see transformers/issues/14674
+            # start_token_id = self.tokenizer.convert_tokens_to_ids(['<pad>'])[0] # see transformers/issues/16571
+            # config = transformers.T5Config(vocab_size=self.tokenizer.vocab_size, decoder_start_token_id=start_token_id)
             self.model = transformers.T5ForConditionalGeneration(config)
         self.loss = th.nn.CrossEntropyLoss(reduction='none')
 
     def prepare_data(self):
         def _tokenize(x):
-            # add prefix "translate English to German: " + 
+            prefix = "translate English to German: "
             src_encoding = self.tokenizer.batch_encode_plus(
-                    [sentence for sentence in x['en']], 
+                    [prefix + sentence for sentence in x['en']], 
                     max_length=FLAGS.seq_length, 
                     padding="longest",
                     truncation=True,
@@ -67,9 +69,9 @@ class TranslationTransformer(pl.LightningModule):
 
         def _prepare_ds():
             # available wmt16 language pairs: ['cs-en', 'de-en', 'fi-en', 'ro-en', 'ru-en', 'tr-en']
-            ds = datasets.load_dataset('wmt16', 'de-en') # entire dataset {train, validation, test}
-            print("Train Dataset is cut to 100000 samples for development purposes! Remove cutting for full training.")
-            train_ds, validation_ds, test_ds = ds['train'][:100000], ds['validation'], ds['test']
+            ds = datasets.load_dataset('wmt16', 'de-en') # {train, validation, test}
+            print(f"Train Dataset is cut to {FLAGS.training_samples} samples for development purposes! Remove cutting for full training.")
+            train_ds, validation_ds, test_ds = ds['train'][:FLAGS.training_samples], ds['validation'], ds['test']
             train_ds, validation_ds, test_ds = map(convert_for_tokenizer, (train_ds, validation_ds, test_ds))
             # add tokenized columns to dataset
             train_ds = train_ds.map(_tokenize, batched=True)
@@ -99,33 +101,26 @@ class TranslationTransformer(pl.LightningModule):
         # calc bleu metric
         # TODO: unefficient to calc loss and output_seq seperately
         # TODO: add check_test_every_n_epoch to trainer to avoid bleu metric in every epoch
-
         # see issue for model.generate: https://github.com/huggingface/transformers/issues/12503
-        # pred_seq = self.model.generate(src_ids, max_length=FLAGS.seq_length) # encoded translation of src sentences
-        pred_seq = self.model.generate(src_ids, do_sample=True, 
-                                        top_p=0.84, 
-                                        top_k=100, 
-                                        max_length=FLAGS.seq_length
+        pred_seq = self.model.generate(src_ids, 
+                                        # do_sample=True, 
+                                        # top_p=0.84, 
+                                        # top_k=100, 
+                                        # max_length=FLAGS.seq_length
                                         ) # encoded translation of src sentences
         trg_decoded = self.tokenizer.batch_decode(trg_ids, skip_special_tokens=True) # decoded trg sentences 
         pred_seq_decoded = self.tokenizer.batch_decode(pred_seq, skip_special_tokens=True) # decoded output translation 
 
-        # see bleu metrics: https://www.youtube.com/watch?v=M05L1DhFqcw
-        # sacre_bleu = datasets.load_metric('sacrebleu')
-        sacre_bleu = datasets.load_metric('sacrebleu')
-
+        # hugging face on bleu score: https://www.youtube.com/watch?v=M05L1DhFqcw
+        sacre_bleu = datasets.load_metric('sacrebleu') # 'bleu' also possible
         pred_list = [[sentence] for sentence in pred_seq_decoded]
         trg_list = [[sentence] for sentence in trg_decoded]
         sacre_bleu_score = sacre_bleu.compute(predictions=pred_list, references=trg_list)
-        # sacre_bleu_score = sacre_bleu.compute(predictions=[pred_list], references=[trg_list]) # use this for bleu instead of sacrebleu
         return {'loss': loss, 'sacre_bleu_score': sacre_bleu_score}
 
     def validation_epoch_end(self, outputs):
         loss = th.tensor([o['loss'] for o in outputs]).mean()
         sacre_bleu = th.tensor([o['sacre_bleu_score']['score'] for o in outputs]).mean()
-        # sacre_bleu = th.tensor([o['sacre_bleu_score']['bleu'] for o in outputs]).mean() # use this for bleu instead of sacrebleu
-
-        # out = {'val_loss': loss, 'val_sacre_bleu': sacre_bleu}
         self.log("val_loss", loss)
         self.log('bleu_score', sacre_bleu)
 
@@ -140,7 +135,7 @@ class TranslationTransformer(pl.LightningModule):
 
     def val_dataloader(self):
         return th.utils.data.DataLoader(
-                self.test_ds,
+                self.validation_ds,
                 batch_size=FLAGS.batch_size,
                 drop_last=False,
                 shuffle=True,
@@ -148,7 +143,7 @@ class TranslationTransformer(pl.LightningModule):
                 )
 
     def configure_optimizers(self):
-        return th.optim.SGD(
+        return th.optim.Adam(
             self.parameters(),
             lr=FLAGS.lr,
             momentum=FLAGS.momentum,
