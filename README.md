@@ -31,6 +31,5 @@ This repository is still being worked on. However, the basic framework is alread
 
 * [ ] Prepare Training for 4x NVIDIA A100 80GB GPUs
     - [ ] Find paper which pretrains on WMT16
-    - [ ] Implementation in PyTorch (drop lightning for now)
     - [ ] Define appropriate training, evaluation and test dataset
     - [ ] Define appropriate training routine, i.e., warmup, learning_rate, lr_scheduler, batch_size, epochs etc.
