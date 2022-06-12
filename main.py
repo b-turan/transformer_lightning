@@ -9,8 +9,8 @@ from absl import app, flags, logging
 flags.DEFINE_boolean('debug', False, '')
 flags.DEFINE_boolean('train', True, '')
 flags.DEFINE_boolean('is_pretrained', False, '')
-flags.DEFINE_integer('epochs', 5, '')
-flags.DEFINE_integer('training_samples', 50000, 'Number of Training Samples')
+flags.DEFINE_integer('epochs', 20, '')
+flags.DEFINE_integer('training_samples', 5000, 'Number of Training Samples')
 flags.DEFINE_integer('batch_size', 128, '')
 flags.DEFINE_float('lr', 3e-4, '') # 3e-4 recommended by huggingface docs
 flags.DEFINE_float('momentum', .9, '')
@@ -34,9 +34,7 @@ class TranslationTransformer(pl.LightningModule):
         if FLAGS.is_pretrained:
             self.model = transformers.T5ForConditionalGeneration.from_pretrained(FLAGS.model, torch_dtype="auto")       
         else:
-            config = transformers.AutoConfig.from_pretrained('t5-small') # see transformers/issues/14674
-            # start_token_id = self.tokenizer.convert_tokens_to_ids(['<pad>'])[0] # see transformers/issues/16571
-            # config = transformers.T5Config(vocab_size=self.tokenizer.vocab_size, decoder_start_token_id=start_token_id)
+            config = transformers.AutoConfig.from_pretrained(FLAGS.model) # see transformers/issues/14674
             self.model = transformers.T5ForConditionalGeneration(config)
         self.loss = th.nn.CrossEntropyLoss(reduction='none')
 
@@ -104,6 +102,7 @@ class TranslationTransformer(pl.LightningModule):
         # see issue for model.generate: 
         # https://github.com/huggingface/transformers/issues/12503
         pred_seq = self.model.generate(src_ids, 
+                                        attention_mask=attention_mask
                                         # do_sample=True, 
                                         # top_p=0.84, 
                                         # top_k=100, 
@@ -112,7 +111,7 @@ class TranslationTransformer(pl.LightningModule):
         trg_decoded = self.tokenizer.batch_decode(trg_ids, skip_special_tokens=True) # decoded trg sentences 
         pred_seq_decoded = self.tokenizer.batch_decode(pred_seq, skip_special_tokens=True) # decoded output translation 
 
-        # original paper of SacreBLEU by Matt Post:
+        # original paper of SacreBLEU by Matt Post (2018):
         # https://arxiv.org/pdf/1804.08771.pdf
         # additional material: 
         # hugging face on SacreBLEU score https://www.youtube.com/watch?v=M05L1DhFqcw
