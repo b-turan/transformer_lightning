@@ -98,10 +98,11 @@ class TranslationTransformer(pl.LightningModule):
         src_ids, attention_mask, trg_ids = batch['src_ids'], batch['attention_mask'], batch['trg_ids']
         loss = self.model(input_ids=src_ids, attention_mask=attention_mask, labels=trg_ids).loss
 
-        # calc bleu metric
+        # calc SacreBLEU metric
         # TODO: unefficient to calc loss and output_seq seperately
         # TODO: add check_test_every_n_epoch to trainer to avoid bleu metric in every epoch
-        # see issue for model.generate: https://github.com/huggingface/transformers/issues/12503
+        # see issue for model.generate: 
+        # https://github.com/huggingface/transformers/issues/12503
         pred_seq = self.model.generate(src_ids, 
                                         # do_sample=True, 
                                         # top_p=0.84, 
@@ -111,7 +112,10 @@ class TranslationTransformer(pl.LightningModule):
         trg_decoded = self.tokenizer.batch_decode(trg_ids, skip_special_tokens=True) # decoded trg sentences 
         pred_seq_decoded = self.tokenizer.batch_decode(pred_seq, skip_special_tokens=True) # decoded output translation 
 
-        # hugging face on bleu score: https://www.youtube.com/watch?v=M05L1DhFqcw
+        # original paper of SacreBLEU by Matt Post:
+        # https://arxiv.org/pdf/1804.08771.pdf
+        # additional material: 
+        # hugging face on SacreBLEU score https://www.youtube.com/watch?v=M05L1DhFqcw
         sacre_bleu = datasets.load_metric('sacrebleu') # 'bleu' also possible
         pred_list = [[sentence] for sentence in pred_seq_decoded]
         trg_list = [[sentence] for sentence in trg_decoded]
