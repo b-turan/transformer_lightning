@@ -149,7 +149,7 @@ class TranslationTransformer(pl.LightningModule):
         return th.optim.Adam(
             self.parameters(),
             lr=FLAGS.lr,
-        )
+            )
 
 
 def main(_):
