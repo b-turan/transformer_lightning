@@ -4,12 +4,12 @@ import sh
 import tensorboard
 import torch as th
 import transformers
-from absl import app, flags, logging
+from absl import app, flags
 
 flags.DEFINE_boolean('debug', False, '')
 flags.DEFINE_boolean('train', True, '')
 flags.DEFINE_boolean('is_pretrained', False, '')
-flags.DEFINE_integer('epochs', 20, '')
+flags.DEFINE_integer('epochs', 10, '')
 flags.DEFINE_integer('training_samples', 5000, 'Number of Training Samples')
 flags.DEFINE_integer('batch_size', 128, '')
 flags.DEFINE_float('lr', 3e-4, '') # 3e-4 recommended by huggingface docs
