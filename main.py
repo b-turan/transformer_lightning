@@ -11,7 +11,7 @@ flags.DEFINE_boolean('train', True, '')
 flags.DEFINE_boolean('is_pretrained', False, '')
 flags.DEFINE_integer('epochs', 10, '')
 flags.DEFINE_integer('training_samples', 5000, 'Number of Training Samples')
-flags.DEFINE_integer('batch_size', 128, '')
+flags.DEFINE_integer('batch_size', 64, '')
 flags.DEFINE_float('lr', 3e-4, '') # 3e-4 recommended by huggingface docs
 flags.DEFINE_float('momentum', .9, '')
 flags.DEFINE_string('model', 't5-small', '')
